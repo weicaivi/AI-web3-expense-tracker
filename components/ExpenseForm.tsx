@@ -1,13 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { parseExpenseText, ParseResult } from '@/utils/ai'
+import { parseTransactionText, ParseResult } from '@/utils/ai'
 
-interface ExpenseFormProps {
-  onExpenseAdded: (expense: ParseResult) => void
+interface TransactionFormProps {
+  onTransactionAdded: (transaction: ParseResult) => void
 }
 
-export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
+export default function TransactionForm({ onTransactionAdded }: TransactionFormProps) {
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [parsedResult, setParsedResult] = useState<ParseResult | null>(null)
@@ -22,7 +22,7 @@ export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
     setParsedResult(null)
     
     try {
-      const result = await parseExpenseText(input.trim())
+      const result = await parseTransactionText(input.trim())
       if (result) {
         setParsedResult(result)
       } else {
@@ -39,7 +39,7 @@ export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
 
   const handleConfirm = async () => {
     if (parsedResult) {
-      onExpenseAdded(parsedResult)
+      onTransactionAdded(parsedResult)
       setInput('')
       setParsedResult(null)
     }
@@ -80,9 +80,10 @@ export default function ExpenseForm({ onExpenseAdded }: ExpenseFormProps) {
         </form>
       ) : (
         <div className="space-y-4">
-          <div className="bg-gray-50 p-4 rounded-md">
+          <div className={`p-4 rounded-md ${parsedResult.type === 'income' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
             <h3 className="font-medium mb-2">AI解析结果：</h3>
             <div className="space-y-1 text-sm">
+              <div>类型: {parsedResult.type === 'income' ? '收入' : '支出'}</div>
               <div>金额: ¥{parsedResult.amount}</div>
               <div>分类: {parsedResult.category}</div>
               <div>日期: {parsedResult.date}</div>

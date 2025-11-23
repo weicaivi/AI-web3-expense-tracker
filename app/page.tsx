@@ -3,25 +3,25 @@
 import { useState, useEffect } from 'react'
 import { useAccount, useSignMessage } from 'wagmi'
 import { WalletConnectButton } from '@/components/WalletConnect'
-import ExpenseForm from '@/components/ExpenseForm'
-import ExpenseList from '@/components/ExpenseList'
-import MonthStats from '@/components/MonthStats'
-import { Expense } from '@/lib/constants'
+import TransactionForm from '@/components/ExpenseForm'
+import TodayTransactions from '@/components/TodayTransactions'
+import MonthlyStats from '@/components/MonthlyStats'
+import { Transaction } from '@/lib/constants'
 import { ParseResult } from '@/utils/ai'
 import { encryptData, generateEncryptionKey } from '@/utils/crypto'
-import { loadExpenses, addExpense, StoredExpense } from '@/utils/storage'
+import { loadTransactions, addTransaction, StoredTransaction } from '@/utils/storage'
 
 export default function HomePage() {
   const { address, isConnected } = useAccount()
   const { signMessage } = useSignMessage()
-  const [expenses, setExpenses] = useState<StoredExpense[]>([])
+  const [transactions, setTransactions] = useState<StoredTransaction[]>([])
   const [encryptionKey, setEncryptionKey] = useState<string>('')
   const [isUploading, setIsUploading] = useState(false)
 
-  // Load expenses from localStorage on component mount
+  // Load transactions from localStorage on component mount
   useEffect(() => {
-    const saved = loadExpenses()
-    setExpenses(saved)
+    const saved = loadTransactions()
+    setTransactions(saved)
   }, [])
 
   // Generate encryption key when wallet is connected
@@ -43,9 +43,10 @@ export default function HomePage() {
     }
   }
 
-  const handleAddExpense = async (parsedResult: ParseResult) => {
-    const newExpense: StoredExpense = {
+  const handleAddTransaction = async (parsedResult: ParseResult) => {
+    const newTransaction: StoredTransaction = {
       id: Date.now().toString(),
+      type: parsedResult.type,
       amount: parsedResult.amount,
       category: parsedResult.category as any,
       date: parsedResult.date,
@@ -56,7 +57,7 @@ export default function HomePage() {
     if (isConnected && encryptionKey) {
       setIsUploading(true)
       try {
-        const encryptedData = encryptData(newExpense, encryptionKey)
+        const encryptedData = encryptData(newTransaction, encryptionKey)
         
         const response = await fetch('/api/ipfs-upload', {
           method: 'POST',
@@ -66,8 +67,8 @@ export default function HomePage() {
 
         if (response.ok) {
           const result = await response.json()
-          newExpense.cid = result.cid
-          newExpense.encrypted = true
+          newTransaction.cid = result.cid
+          newTransaction.encrypted = true
           console.log('Uploaded to IPFS:', result.cid)
         } else {
           console.error('IPFS upload failed')
@@ -80,8 +81,8 @@ export default function HomePage() {
     }
 
     // Add to storage and update state
-    const updated = addExpense(newExpense)
-    setExpenses(updated)
+    const updated = addTransaction(newTransaction)
+    setTransactions(updated)
   }
 
   return (
@@ -104,13 +105,13 @@ export default function HomePage() {
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
         {/* Input Form */}
-        <ExpenseForm onExpenseAdded={handleAddExpense} />
+        <TransactionForm onTransactionAdded={handleAddTransaction} />
 
-        {/* Stats */}
-        <MonthStats expenses={expenses} />
+        {/* Today's Transactions */}
+        <TodayTransactions transactions={transactions} />
 
-        {/* Expense List */}
-        <ExpenseList expenses={expenses} />
+        {/* Monthly Stats */}
+        <MonthlyStats transactions={transactions} />
 
         {/* Connection Status */}
         {!isConnected && (

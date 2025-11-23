@@ -1,56 +1,56 @@
-import { Expense } from '@/lib/constants'
+import { Transaction } from '@/lib/constants'
 
-const EXPENSES_KEY = 'expenses'
+const TRANSACTIONS_KEY = 'transactions'
 const CID_LIST_KEY = 'cidList'
 
-export interface StoredExpense extends Expense {
+export interface StoredTransaction extends Transaction {
   cid?: string
   encrypted?: boolean
 }
 
-// Save expenses to localStorage
-export function saveExpenses(expenses: StoredExpense[]): void {
+// Save transactions to localStorage
+export function saveTransactions(transactions: StoredTransaction[]): void {
   if (typeof window === 'undefined') return
   
   try {
-    localStorage.setItem(EXPENSES_KEY, JSON.stringify(expenses))
+    localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(transactions))
     
     // Also maintain a separate CID list for IPFS references
-    const cids = expenses.filter(e => e.cid).map(e => e.cid!)
+    const cids = transactions.filter(t => t.cid).map(t => t.cid!)
     localStorage.setItem(CID_LIST_KEY, JSON.stringify(cids))
   } catch (error) {
-    console.error('Failed to save expenses:', error)
+    console.error('Failed to save transactions:', error)
   }
 }
 
-// Load expenses from localStorage
-export function loadExpenses(): StoredExpense[] {
+// Load transactions from localStorage
+export function loadTransactions(): StoredTransaction[] {
   if (typeof window === 'undefined') return []
   
   try {
-    const saved = localStorage.getItem(EXPENSES_KEY)
+    const saved = localStorage.getItem(TRANSACTIONS_KEY)
     if (saved) {
       return JSON.parse(saved)
     }
   } catch (error) {
-    console.error('Failed to load expenses:', error)
+    console.error('Failed to load transactions:', error)
   }
   return []
 }
 
-// Add a single expense
-export function addExpense(expense: StoredExpense): StoredExpense[] {
-  const expenses = loadExpenses()
-  const updated = [...expenses, expense]
-  saveExpenses(updated)
+// Add a single transaction
+export function addTransaction(transaction: StoredTransaction): StoredTransaction[] {
+  const transactions = loadTransactions()
+  const updated = [...transactions, transaction]
+  saveTransactions(updated)
   return updated
 }
 
-// Delete an expense by ID
-export function deleteExpense(id: string): StoredExpense[] {
-  const expenses = loadExpenses()
-  const updated = expenses.filter(e => e.id !== id)
-  saveExpenses(updated)
+// Delete a transaction by ID
+export function deleteTransaction(id: string): StoredTransaction[] {
+  const transactions = loadTransactions()
+  const updated = transactions.filter(t => t.id !== id)
+  saveTransactions(updated)
   return updated
 }
 
@@ -74,28 +74,9 @@ export function clearAllData(): void {
   if (typeof window === 'undefined') return
   
   try {
-    localStorage.removeItem(EXPENSES_KEY)
+    localStorage.removeItem(TRANSACTIONS_KEY)
     localStorage.removeItem(CID_LIST_KEY)
   } catch (error) {
     console.error('Failed to clear data:', error)
-  }
-}
-
-// Get statistics
-export function getMonthlyStats(expenses: StoredExpense[], yearMonth: string) {
-  const monthlyExpenses = expenses.filter(e => e.date.startsWith(yearMonth))
-  
-  const total = monthlyExpenses.reduce((sum, e) => sum + e.amount, 0)
-  
-  const byCategory: Record<string, number> = {}
-  monthlyExpenses.forEach(e => {
-    byCategory[e.category] = (byCategory[e.category] || 0) + e.amount
-  })
-  
-  return {
-    total,
-    count: monthlyExpenses.length,
-    byCategory,
-    expenses: monthlyExpenses
   }
 }
