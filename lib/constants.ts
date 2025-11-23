@@ -5,8 +5,9 @@ export const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages'
 // Contract addresses (will be updated after deployment)
 export const FIRST_EXPENSE_NFT_ADDRESS = process.env.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS || ''
 
-// IPFS configuration
-export const WEB3_STORAGE_TOKEN = process.env.NEXT_PUBLIC_WEB3_STORAGE_TOKEN || ''
+// IPFS configuration (Pinata)
+export const PINARA_JWT = process.env.PINATA_JWT || ''
+export const PINARA_GATEWAY = 'https://gateway.pinata.cloud/ipfs/'
 
 // Expense categories
 export const EXPENSE_CATEGORIES = [

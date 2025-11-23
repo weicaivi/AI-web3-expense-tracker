@@ -34,7 +34,7 @@ QWEN_API_KEY=your_qwen_key
 CLAUDE_API_KEY=your_claude_key
 
 # Required for IPFS storage
-WEB3_STORAGE_TOKEN=your_web3_storage_token
+PINATA_JWT=your_pinata_jwt_token
 
 # Required for wallet connection
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id
@@ -137,8 +137,10 @@ Each should parse correctly with appropriate category.
 
 ### Issue: "IPFS upload failed"
 **Solution**: 
-- Check WEB3_STORAGE_TOKEN is valid
+- Check PINATA_JWT is valid and not expired
+- Verify you have sufficient Pinata free tier limits
 - Check internet connection
+- Look at browser console for detailed error messages
 - Try again (may be temporary network issue)
 
 ### Issue: Wallet won't connect

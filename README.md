@@ -14,8 +14,8 @@ AI-powered Web3 expense tracking application built with Next.js, RainbowKit, and
 
 - **Frontend**: Next.js 14, TypeScript, Tailwind CSS
 - **Web3**: RainbowKit, Wagmi, Viem
-- **AI**: Alibaba Qwen (通义千问)
-- **Storage**: IPFS via Web3.Storage
+- **AI**: Alibaba Qwen (通义千问) with Claude fallback
+- **Storage**: IPFS via Pinata
 - **Blockchain**: Ethereum Sepolia testnet
 
 ## Quick Start
@@ -35,8 +35,8 @@ Edit `.env.local` with your API keys:
 QWEN_API_KEY=your_qwen_api_key_here
 CLAUDE_API_KEY=your_claude_api_key_here
 
-# Storage
-WEB3_STORAGE_TOKEN=your_web3_storage_token_here
+# IPFS Storage (Pinata)
+PINATA_JWT=your_pinata_jwt_token_here
 
 # Wallet
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id
@@ -80,9 +80,11 @@ The system will automatically use Claude as a fallback if Qwen is unavailable or
 
 ### Web3.Storage
 
-1. Visit [web3.storage](https://web3.storage/)
-2. Sign up and create an API token
-3. Add to `.env.local` as `WEB3_STORAGE_TOKEN`
+1. Visit [Pinata](https://pinata.cloud/)
+2. Sign up for a free account
+3. Go to API Keys section
+4. Create a new API key and copy the JWT token
+5. Add to `.env.local` as `PINATA_JWT`
 
 ### WalletConnect Project ID
 

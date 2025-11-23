@@ -20,9 +20,9 @@
   - Validates required fields (amount, category, date)
 
 #### `/app/api/ipfs-upload/route.ts` - IPFS Upload Endpoint
-- Uploads encrypted data to IPFS via Web3.Storage
-- Returns CID for retrieval
-- Server-side only (API keys protected)
+- Uploads encrypted data to IPFS via Pinata
+- Returns IPFS hash (CID) for retrieval
+- Server-side only (JWT token protected)
 
 ### 3. Prompt Engineering
 
@@ -81,10 +81,10 @@
 - Secure by default
 
 #### IPFS (`/utils/ipfs.ts`)
-- Upload encrypted data to IPFS
-- Retrieve data by CID
-- Web3.Storage integration
-- Error handling
+- Upload encrypted data to IPFS via Pinata
+- Retrieve data by CID from Pinata gateway
+- Simple REST API integration
+- Error handling with detailed logging
 
 #### LocalStorage Management (`/utils/storage.ts`)
 - Save/load expenses
@@ -170,8 +170,8 @@ Project/
 QWEN_API_KEY=sk-xxx                     # Alibaba Cloud DashScope
 CLAUDE_API_KEY=sk-ant-xxx               # Anthropic (fallback)
 
-# Storage
-WEB3_STORAGE_TOKEN=xxx                  # web3.storage
+# IPFS Storage
+PINATA_JWT=eyJhbGc...                   # Pinata JWT token
 
 # Wallet
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=xxx # WalletConnect Cloud
