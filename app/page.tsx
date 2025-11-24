@@ -7,11 +7,13 @@ import TransactionForm from '@/components/ExpenseForm'
 import ImageUpload from '@/components/ImageUpload'
 import TodayTransactions from '@/components/TodayTransactions'
 import MonthlyStats from '@/components/MonthlyStats'
+import InsightsPanel from '@/components/InsightsPanel'
 import ExpenseList from '@/components/ExpenseList'
+import ExportMenu from '@/components/ExportMenu'
 import { Transaction } from '@/lib/constants'
 import { ParseResult } from '@/utils/ai'
 import { encryptData, generateEncryptionKey } from '@/utils/crypto'
-import { loadTransactions, addTransaction, StoredTransaction } from '@/utils/storage'
+import { loadTransactions, addTransaction, StoredTransaction, saveTransactions } from '@/utils/storage'
 
 export default function HomePage() {
   const { address, isConnected } = useAccount()
@@ -61,7 +63,7 @@ export default function HomePage() {
       setIsUploading(true)
       try {
         const encryptedData = encryptData(newTransaction, encryptionKey)
-        
+
         const response = await fetch('/api/ipfs-upload', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -88,6 +90,13 @@ export default function HomePage() {
     setTransactions(updated)
   }
 
+  const handleImportBackup = (importedTransactions: Transaction[]) => {
+    // Replace all transactions with imported data
+    const storedTransactions = importedTransactions as StoredTransaction[]
+    saveTransactions(storedTransactions)
+    setTransactions(storedTransactions)
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -100,6 +109,10 @@ export default function HomePage() {
                 余额: {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : ''}
               </div>
             )}
+            <ExportMenu
+              transactions={transactions}
+              onImportBackup={handleImportBackup}
+            />
             <WalletConnectButton />
           </div>
         </div>
@@ -121,6 +134,9 @@ export default function HomePage() {
 
         {/* Monthly Stats */}
         <MonthlyStats transactions={transactions} />
+
+        {/* Insights Panel */}
+        <InsightsPanel transactions={transactions} />
 
         {/* All Records Section */}
         <div className="space-y-4">
