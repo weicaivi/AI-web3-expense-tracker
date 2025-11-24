@@ -26,11 +26,10 @@ export default function HomePage() {
   const [showAllRecords, setShowAllRecords] = useState(false)
   const [showNFTModal, setShowNFTModal] = useState(false)
 
-  // NFT合约交互
+  // NFT Contract Interactions
   const { writeContractAsync: mintNFT } = useWriteContract()
   const { writeContractAsync: addRecordToChain } = useWriteContract()
 
-  // 检查用户是否已经铸造过NFT
   const { data: hasMintedNFT } = useReadContract({
     address: FIRST_EXPENSE_NFT_ADDRESS as `0x${string}`,
     abi: FIRST_EXPENSE_NFT_ABI,
@@ -41,13 +40,11 @@ export default function HomePage() {
     }
   })
 
-  // Load transactions from localStorage on component mount
   useEffect(() => {
     const saved = loadTransactions()
     setTransactions(saved)
   }, [])
 
-  // Generate encryption key when wallet is connected
   useEffect(() => {
     if (isConnected && address && !encryptionKey) {
       handleGenerateKey()
@@ -76,12 +73,10 @@ export default function HomePage() {
 
     let cid: string | undefined
 
-    // Encrypt and upload to IPFS if wallet is connected
     if (isConnected && encryptionKey) {
       setIsUploading(true)
       try {
         const encryptedData = encryptData(newTransaction, encryptionKey)
-
         const response = await fetch('/api/ipfs-upload', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -93,93 +88,52 @@ export default function HomePage() {
           cid = result.cid
           newTransaction.cid = cid
           newTransaction.encrypted = true
-          console.log('✅ 已上传到IPFS:', cid)
-        } else {
-          console.error('IPFS上传失败')
         }
       } catch (error) {
-        console.error('IPFS上传失败:', error)
+        console.error('IPFS Upload Failed:', error)
       } finally {
         setIsUploading(false)
       }
     }
 
-    // Add to storage and update state
     const updated = addTransaction(newTransaction)
     setTransactions(updated)
-
-    // 检查是否是第一次记账（需要铸造NFT）
     const isFirstTransaction = updated.length === 1
 
-    console.log('🔍 调试信息:', {
-      isConnected,
-      hasAddress: !!address,
-      hasCid: !!cid,
-      isFirstTransaction,
-      hasMintedNFT,
-      transactionCount: updated.length
-    })
-
-    // 如果钱包已连接，执行链上操作
     if (isConnected && address && cid) {
       try {
-        // 1. 将CID写入链上索引合约
         if (EXPENSE_TRACKER_ADDRESS) {
-          console.log('📝 正在将记录写入链上索引...')
           await addRecordToChain({
             address: EXPENSE_TRACKER_ADDRESS as `0x${string}`,
             abi: EXPENSE_TRACKER_ABI,
             functionName: 'addRecord',
             args: [cid]
           })
-          console.log('✅ 记录已写入链上索引')
         }
 
-        // 2. 如果是第一次记账且未铸造过NFT，则铸造NFT
         if (isFirstTransaction && !hasMintedNFT && FIRST_EXPENSE_NFT_ADDRESS) {
-          console.log('🎨 正在铸造首次记账NFT...')
           await mintNFT({
             address: FIRST_EXPENSE_NFT_ADDRESS as `0x${string}`,
             abi: FIRST_EXPENSE_NFT_ABI,
             functionName: 'mintFirstExpense'
           })
-          console.log('✅ NFT铸造成功！')
-
-          // 显示NFT弹窗
           setShowNFTModal(true)
-        } else {
-          console.log('⚠️ 跳过NFT铸造:', {
-            isFirstTransaction,
-            hasMintedNFT,
-            hasContractAddress: !!FIRST_EXPENSE_NFT_ADDRESS
-          })
         }
       } catch (error: any) {
-        console.error('❌ 链上操作失败:', error)
-        // 即使链上操作失败，本地记录已保存，所以不影响用户体验
-        if (error.message?.includes('User rejected')) {
-          console.log('用户取消了交易')
-        }
+        console.error('Chain operation failed:', error)
       }
-    } else {
-      console.log('⚠️ 跳过链上操作，原因:', {
-        isConnected,
-        hasAddress: !!address,
-        hasCid: !!cid
-      })
     }
   }
 
   const handleImportBackup = (importedTransactions: Transaction[]) => {
-    // Replace all transactions with imported data
     const storedTransactions = importedTransactions as StoredTransaction[]
     saveTransactions(storedTransactions)
     setTransactions(storedTransactions)
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* NFT弹窗 */}
+    <div className="min-h-screen pb-20 overflow-x-hidden">
+      {/* NFT Modal */}
       <MyNFT
         isOpen={showNFTModal}
         onClose={() => setShowNFTModal(false)}
@@ -187,64 +141,128 @@ export default function HomePage() {
         nftImage="/nft-images/first-expense-nft.jpg"
       />
 
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">AI Web3 记账</h1>
-          <div className="flex items-center space-x-4">
+      {/* Brutalist Header */}
+      <header className="sticky top-0 z-50 bg-white border-b-4 border-black py-4 px-4 md:px-8">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-purple-500 border-2 border-black rounded-none shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center text-white font-bold text-xl">
+              AI
+            </div>
+            <h1 className="text-3xl font-black tracking-tighter text-black uppercase italic">
+              Web3 Ledger
+            </h1>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-4 justify-center">
             {isConnected && (
-              <div className="text-sm text-gray-600">
-                余额: {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : ''}
+              <div className="bg-green-100 border-2 border-black px-3 py-1 font-mono text-sm font-bold shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : ''}
               </div>
             )}
-            <ExportMenu
-              transactions={transactions}
-              onImportBackup={handleImportBackup}
-            />
-            <WalletConnectButton />
+            <div className="flex gap-2">
+              <ExportMenu
+                transactions={transactions}
+                onImportBackup={handleImportBackup}
+              />
+              <div className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all">
+                 <WalletConnectButton />
+              </div>
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-        {/* Input Methods */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Text Input Form */}
-          <TransactionForm onTransactionAdded={handleAddTransaction} />
+      <main className="max-w-6xl mx-auto px-4 py-10 space-y-10">
+        
+        {/* Section 1: Input Methods */}
+        {/* Added items-stretch to grid and flex-col/h-full to children for equal height */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+          {/* Text Form */}
+          <div className="lg:col-span-7 flex flex-col animate-slideUp delay-100">
+             <div className="flex items-center gap-2 mb-2">
+                <div className="bg-blue-400 w-4 h-4 border border-black"></div>
+                <h2 className="font-bold text-xl">Manual Entry</h2>
+             </div>
+             {/* Added h-full and flex flex-col to fill space */}
+             <div className="neo-card p-6 relative overflow-hidden group h-full flex flex-col justify-center">
+               <div className="absolute top-0 right-0 bg-blue-400 text-white text-xs font-bold px-2 py-1 border-l-2 border-b-2 border-black z-10">
+                  TYPE IT
+               </div>
+               <TransactionForm onTransactionAdded={handleAddTransaction} />
+             </div>
+          </div>
           
           {/* Image Upload */}
-          <ImageUpload onImageParsed={handleAddTransaction} />
+          <div className="lg:col-span-5 flex flex-col animate-slideUp delay-200">
+            <div className="flex items-center gap-2 mb-2">
+                <div className="bg-yellow-400 w-4 h-4 border border-black"></div>
+                <h2 className="font-bold text-xl">AI Scan</h2>
+             </div>
+            {/* Added h-full to fill space */}
+            <div className="neo-card p-6 bg-yellow-50 relative h-full">
+              <div className="absolute top-0 right-0 bg-yellow-400 text-black text-xs font-bold px-2 py-1 border-l-2 border-b-2 border-black z-10">
+                  DROP IT
+               </div>
+               {/* Decoration */}
+               <div className="absolute -bottom-4 -right-4 text-6xl opacity-20 rotate-12 select-none pointer-events-none">📸</div>
+              <ImageUpload onImageParsed={handleAddTransaction} />
+            </div>
+          </div>
         </div>
 
-        {/* Today's Transactions */}
-        <TodayTransactions transactions={transactions} />
+        {/* Section 2: Stats & Today */}
+        {/* Added items-stretch for equal height */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+          <div className="flex flex-col animate-slideUp delay-300">
+             <div className="neo-card p-0 overflow-hidden h-full">
+               <div className="bg-pink-400 border-b-2 border-black p-3">
+                 <h3 className="font-black text-white text-lg uppercase tracking-widest">Today's Activity</h3>
+               </div>
+               <div className="p-4 h-full">
+                 <TodayTransactions transactions={transactions} />
+               </div>
+             </div>
+          </div>
 
-        {/* Monthly Stats */}
-        <MonthlyStats transactions={transactions} />
+          <div className="flex flex-col animate-slideUp delay-300">
+            <div className="neo-card p-0 overflow-hidden h-full">
+               <div className="bg-purple-400 border-b-2 border-black p-3">
+                 <h3 className="font-black text-white text-lg uppercase tracking-widest">Monthly Overview</h3>
+               </div>
+               <div className="p-4 h-full">
+                 <MonthlyStats transactions={transactions} />
+               </div>
+             </div>
+          </div>
+        </div>
 
         {/* Insights Panel */}
-        <InsightsPanel transactions={transactions} />
+        <div className="animate-slideUp delay-400">
+          <div className="neo-card border-4 border-black bg-white">
+            <div className="p-6">
+              <h2 className="text-2xl font-black mb-4 flex items-center gap-2">
+                <span>🧠</span> AI Insights
+              </h2>
+              <InsightsPanel transactions={transactions} />
+            </div>
+          </div>
+        </div>
 
         {/* All Records Section */}
-        <div className="space-y-4">
+        <div className="space-y-6 pt-8 border-t-4 border-dashed border-black/20">
           {/* Toggle Button */}
           <div className="flex justify-center">
             <button
               onClick={() => setShowAllRecords(!showAllRecords)}
-              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md"
+              className="neo-btn bg-black text-white hover:bg-gray-800 flex items-center gap-3 text-lg"
             >
-              <svg
-                className={`w-5 h-5 transition-transform ${showAllRecords ? 'rotate-180' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-              <span>{showAllRecords ? '收起' : '查看'}所有记账记录</span>
+              <span className={`transition-transform duration-300 ${showAllRecords ? 'rotate-180' : ''}`}>
+                ▼
+              </span>
+              <span>{showAllRecords ? 'COLLAPSE' : 'REVEAL'} ARCHIVE</span>
               {transactions.length > 0 && (
-                <span className="bg-white text-blue-600 px-2 py-0.5 rounded-full text-sm font-semibold">
+                <span className="bg-white text-black border border-black px-2 py-0.5 text-xs font-bold shadow-[2px_2px_0px_0px_rgba(255,255,255,0.5)]">
                   {transactions.length}
                 </span>
               )}
@@ -253,28 +271,31 @@ export default function HomePage() {
 
           {/* Records List */}
           {showAllRecords && (
-            <div className="animate-fadeIn">
-              <ExpenseList transactions={transactions} />
+            <div className="animate-slideUp">
+              <div className="neo-card p-2 md:p-6">
+                <ExpenseList transactions={transactions} />
+              </div>
             </div>
           )}
         </div>
 
-        {/* 测试NFT弹窗按钮 (开发调试用) */}
-        <div className="flex justify-center">
+        {/* Dev Tools / Test Area */}
+        <div className="flex justify-center py-8 opacity-50 hover:opacity-100 transition-opacity">
           <button
             onClick={() => setShowNFTModal(true)}
-            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
+            className="text-xs font-mono border border-black px-2 py-1 bg-gray-200 hover:bg-purple-200"
           >
-            🎨 预览NFT弹窗 (测试)
+            [DEV: TEST NFT POPUP]
           </button>
         </div>
 
-        {/* Connection Status */}
+        {/* Connection Warning */}
         {!isConnected && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <p className="text-yellow-800">
-              连接钱包以启用数据加密和IPFS存储功能
-            </p>
+          <div className="fixed bottom-4 right-4 animate-bounce-slow z-40 max-w-xs">
+            <div className="bg-red-100 border-4 border-black p-4 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+              <p className="font-bold text-red-900 mb-1">⚠️ WALLET DISCONNECTED</p>
+              <p className="text-sm font-medium">Connect wallet to enable military-grade encryption & IPFS storage.</p>
+            </div>
           </div>
         )}
       </main>
