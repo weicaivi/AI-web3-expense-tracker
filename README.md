@@ -5,15 +5,16 @@ AI-powered Web3 expense tracking application built with Next.js, RainbowKit, and
 ## Features
 
 - 🤖 **AI Natural Language Processing**: Input expenses in natural language (e.g., "今天吃饭30块")
-- � **Income & Expense Tracking**: Track both income and expenses with categories
-- �🔐 **Web3 Data Ownership**: Encrypted data storage on IPFS
+- 💰 **Income & Expense Tracking**: Track both income and expenses with categories
+- 🔐 **Web3 Data Ownership**: Encrypted data storage on IPFS (Pinata)
+- 🔗 **On-Chain Index**: Store IPFS CID references on Ethereum for cross-device data recovery
 - 💳 **Wallet Integration**: Connect with MetaMask and other wallets via RainbowKit
 - 📊 **Smart Statistics**: Today's transactions + monthly income/expense breakdown
 - 📸 **OCR Image Recognition**: Upload receipt photos for automatic data extraction
 
 Planned
 - 🏆 **NFT Milestones**: Earn NFTs for expense tracking milestones
-- � **Visual Charts**: Chart.js integration for spending trends
+- 📈 **Visual Charts**: Chart.js integration for spending trends
 - 📤 **Data Export**: Export your financial data
 
 ## Tech Stack
@@ -46,17 +47,35 @@ PINATA_JWT=your_pinata_jwt_token_here
 
 # Wallet
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id
+
+# Smart Contracts (will be updated after deployment)
+NEXT_PUBLIC_NFT_CONTRACT_ADDRESS=0x...
+NEXT_PUBLIC_EXPENSE_TRACKER_ADDRESS=0x...
 ```
 
 **Note**: The app will try Qwen API first, and automatically fallback to Claude if Qwen fails or is not configured.
 
-### 3. Deploy NFT Contract
+### 3. Deploy Smart Contracts
+
+#### 3.1 Deploy ExpenseTracker Contract (Required for On-Chain Index)
 
 1. Open [Remix IDE](https://remix.ethereum.org/)
-2. Create new file `FirstExpenseNFT.sol`
-3. Copy contract code from `contracts/FirstExpenseNFT.sol`
-4. Compile and deploy to Sepolia testnet
-5. Update `NEXT_PUBLIC_NFT_CONTRACT_ADDRESS` in `.env.local`
+2. Create new file `ExpenseTracker.sol`
+3. Copy contract code from `contracts/ExpenseTracker.sol`
+4. Compile with Solidity version `^0.8.0`
+5. Select "Injected Provider - MetaMask" and connect to **Sepolia testnet**
+6. Deploy the contract
+7. Copy the deployed contract address
+8. Update `.env.local`: `NEXT_PUBLIC_EXPENSE_TRACKER_ADDRESS=0x...`
+
+#### 3.2 Deploy FirstExpenseNFT Contract (Optional - for NFT milestones)
+
+1. In Remix, create new file `FirstExpenseNFT.sol`
+2. Copy contract code from `contracts/FirstExpenseNFT.sol`
+3. Compile and deploy to Sepolia testnet
+4. Update `.env.local`: `NEXT_PUBLIC_NFT_CONTRACT_ADDRESS=0x...`
+
+**Important**: Make sure you have Sepolia testnet ETH. Get free test ETH from [Sepolia Faucet](https://sepoliafaucet.com/).
 
 ### 4. Start Development Server
 
@@ -101,40 +120,60 @@ The system will automatically use Claude as a fallback if Qwen is unavailable or
 
 ## Usage
 
-1. **Connect Wallet**: Click the connect button and select your preferred wallet
-2. **Add Expenses**: Type natural language like "今天吃饭30块" and let AI parse it
+### Basic Workflow
+
+1. **Connect Wallet**: Click the connect button and select your preferred wallet (MetaMask recommended)
+2. **Add Expenses**:
+   - **Text Input**: Type natural language like "今天吃饭30块" and let AI parse it
+   - **Image Upload**: Upload receipt photos for automatic OCR recognition
 3. **Review & Confirm**: Check AI parsing results and confirm
-4. **Track Progress**: View monthly statistics and expense history
-5. **Earn NFTs**: Get your first expense NFT milestone!
+4. **Auto Sync**: Data is encrypted and stored on IPFS, with CID saved on-chain
+5. **Track Progress**: View today's transactions and monthly statistics
+6. **Cross-Device Recovery**: Connect your wallet on any device to restore all data
+
+### On-Chain Index Benefits
+
+- **Data Permanence**: Your expense CIDs are permanently stored on Ethereum blockchain
+- **Cross-Device Sync**: Access your data from any device by connecting your wallet
+- **Decentralized**: No central server required - data lives on IPFS + blockchain
+- **Ownership**: You own your data through your wallet signature
 
 ## Project Structure
 
 ```
 /app
   /api
-    /parse          # AI parsing endpoint
-    /ipfs-upload    # IPFS upload endpoint
-  layout.tsx        # Root layout with wallet provider
-  page.tsx          # Main application page
-  globals.css       # Global styles
+    /parse           # AI text parsing endpoint
+    /ocr             # OCR image recognition endpoint
+    /ipfs-upload     # Pinata IPFS upload endpoint
+  layout.tsx         # Root layout with wallet provider
+  page.tsx           # Main application page
+  globals.css        # Global styles
 
 /components
-  WalletConnect.tsx # Wallet connection setup
-  ExpenseForm.tsx   # Input form with AI parsing
-  ExpenseList.tsx   # Expense history display
-  MonthStats.tsx    # Monthly statistics
+  WalletConnect.tsx  # Wallet connection setup
+  ExpenseForm.tsx    # Text input form with AI parsing
+  ImageUpload.tsx    # Image upload with OCR recognition
+  ExpenseList.tsx    # Expense history display
+  TodayTransactions.tsx  # Today's income/expense summary
+  MonthlyStats.tsx   # Monthly statistics with categories
+
+/hooks
+  useExpenseTracker.ts  # Custom hooks for on-chain index
 
 /utils
-  crypto.ts         # Encryption utilities
-  ipfs.ts          # IPFS utilities
-  ai.ts            # AI parsing utilities
+  crypto.ts          # AES encryption utilities
+  ipfs.ts            # Pinata IPFS utilities
+  ai.ts              # AI parsing utilities
+  storage.ts         # LocalStorage management
 
 /contracts
-  FirstExpenseNFT.sol # NFT contract for milestones
+  ExpenseTracker.sol     # On-chain index contract (stores CIDs)
+  FirstExpenseNFT.sol    # NFT contract for milestones
 
 /lib
-  constants.ts      # App constants and types
-  wagmi.ts         # Wagmi configuration
+  constants.ts       # App constants, types, and ABIs
+  wagmi.ts           # Wagmi configuration
 ```
 
 

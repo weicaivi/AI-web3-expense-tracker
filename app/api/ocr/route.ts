@@ -81,7 +81,7 @@ async function callQwenVL(imageBase64: string): Promise<OCRResult | null> {
 5. 简短描述交易内容
 
 支出分类：餐饮、交通、购物、娱乐、其他
-收入分类：Salary、Transfer In、Others
+收入分类：工资、转账、其他
 
 请返回JSON格式，例如：
 {
@@ -148,7 +148,7 @@ async function callClaudeVision(imageBase64: string): Promise<OCRResult | null> 
 5. 简短描述交易内容
 
 支出分类：餐饮、交通、购物、娱乐、其他
-收入分类：Salary、Transfer In、Others
+收入分类：工资、转账、其他
 
 请返回JSON格式，例如：
 {
@@ -209,26 +209,45 @@ async function callClaudeVision(imageBase64: string): Promise<OCRResult | null> 
 
 function extractJSON(text: string): OCRResult | null {
   try {
-    // Try to extract JSON from markdown code blocks
-    const jsonMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/)
-    const jsonString = jsonMatch ? jsonMatch[1] : text
+    console.log('Extracting JSON from:', text)
 
+    let jsonString = text.trim()
+
+    // Try to extract JSON from markdown code blocks
+    const codeBlockMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/)
+    if (codeBlockMatch) {
+      jsonString = codeBlockMatch[1]
+    } else {
+      // Try to find JSON object in the text
+      const jsonMatch = text.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        jsonString = jsonMatch[0]
+      }
+    }
+
+    console.log('JSON string to parse:', jsonString)
     const parsed = JSON.parse(jsonString)
+    console.log('Parsed JSON:', parsed)
 
     // Validate required fields
     if (!parsed.amount || !parsed.category || !parsed.date) {
+      console.error('Missing required fields:', { amount: parsed.amount, category: parsed.category, date: parsed.date })
       return null
     }
 
-    return {
+    const result = {
       type: parsed.type || 'expense',
       amount: parseFloat(parsed.amount),
       category: parsed.category,
       date: parsed.date,
       description: parsed.description || '',
     }
+
+    console.log('Extracted result:', result)
+    return result
   } catch (error) {
     console.error('JSON extraction error:', error)
+    console.error('Original text was:', text)
     return null
   }
 }
