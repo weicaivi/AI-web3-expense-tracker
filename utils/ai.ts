@@ -36,10 +36,10 @@ export async function parseTransactionText(text: string): Promise<ParseResult | 
 
 收入示例：
 输入："今天收到工资5000元"
-输出：{"type": "income", "amount": 5000, "category": "Salary", "date": "${today}", "description": "工资"}
+输出：{"type": "income", "amount": 5000, "category": "工资", "date": "${today}", "description": "工资"}
 
 输入："朋友转账500"
-输出：{"type": "income", "amount": 500, "category": "Transfer In", "date": "${today}", "description": "朋友转账"}
+输出：{"type": "income", "amount": 500, "category": "转账", "date": "${today}", "description": "朋友转账"}
 
 现在处理：
 输入："${text}"

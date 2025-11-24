@@ -116,7 +116,7 @@ Both input methods feed into the same `handleAddTransaction` flow.
 5. 简短描述交易内容
 
 支出分类：餐饮、交通、购物、娱乐、其他
-收入分类：Salary、Transfer In、Others
+收入分类：工资、转账、其他
 
 请返回JSON格式，例如：
 {
@@ -213,7 +213,7 @@ npm run dev
 
 **Test Case 4: Salary Statement**
 - Upload a payroll image
-- Expected: `type: "income"`, `category: "Salary"`
+- Expected: `type: "income"`, `category: "工资"`
 - Confirm amount parsing
 
 **Test Case 5: Poor Quality Image**

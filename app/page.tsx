@@ -7,6 +7,7 @@ import TransactionForm from '@/components/ExpenseForm'
 import ImageUpload from '@/components/ImageUpload'
 import TodayTransactions from '@/components/TodayTransactions'
 import MonthlyStats from '@/components/MonthlyStats'
+import ExpenseList from '@/components/ExpenseList'
 import { Transaction } from '@/lib/constants'
 import { ParseResult } from '@/utils/ai'
 import { encryptData, generateEncryptionKey } from '@/utils/crypto'
@@ -18,6 +19,7 @@ export default function HomePage() {
   const [transactions, setTransactions] = useState<StoredTransaction[]>([])
   const [encryptionKey, setEncryptionKey] = useState<string>('')
   const [isUploading, setIsUploading] = useState(false)
+  const [showAllRecords, setShowAllRecords] = useState(false)
 
   // Load transactions from localStorage on component mount
   useEffect(() => {
@@ -119,6 +121,39 @@ export default function HomePage() {
 
         {/* Monthly Stats */}
         <MonthlyStats transactions={transactions} />
+
+        {/* All Records Section */}
+        <div className="space-y-4">
+          {/* Toggle Button */}
+          <div className="flex justify-center">
+            <button
+              onClick={() => setShowAllRecords(!showAllRecords)}
+              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md"
+            >
+              <svg
+                className={`w-5 h-5 transition-transform ${showAllRecords ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+              <span>{showAllRecords ? '收起' : '查看'}所有记账记录</span>
+              {transactions.length > 0 && (
+                <span className="bg-white text-blue-600 px-2 py-0.5 rounded-full text-sm font-semibold">
+                  {transactions.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Records List */}
+          {showAllRecords && (
+            <div className="animate-fadeIn">
+              <ExpenseList transactions={transactions} />
+            </div>
+          )}
+        </div>
 
         {/* Connection Status */}
         {!isConnected && (
