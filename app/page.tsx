@@ -11,11 +11,16 @@ import InsightsPanel from '@/components/InsightsPanel'
 import ExpenseList from '@/components/ExpenseList'
 import ExportMenu from '@/components/ExportMenu'
 import MyNFT from '@/components/MyNFT'
+import { GoalCard } from '@/components/GoalCard'
+import { CreateGoalModal } from '@/components/CreateGoalModal'
+import { CategoryBudgetAlert } from '@/components/CategoryBudgetAlert'
 import { Transaction } from '@/lib/constants'
 import { ParseResult } from '@/utils/ai'
 import { encryptData, generateEncryptionKey } from '@/utils/crypto'
 import { loadTransactions, addTransaction, StoredTransaction, saveTransactions } from '@/utils/storage'
 import { FIRST_EXPENSE_NFT_ADDRESS, FIRST_EXPENSE_NFT_ABI, EXPENSE_TRACKER_ADDRESS, EXPENSE_TRACKER_ABI } from '@/lib/contracts'
+import { loadGoals, updateCategorySpending, updateGoalSavings, checkAndResetMonthlySpending } from '@/utils/goalStorage'
+import { isCategoryControlled, SavingsGoal } from '@/lib/goals'
 
 export default function HomePage() {
   const { address, isConnected } = useAccount()
@@ -25,6 +30,15 @@ export default function HomePage() {
   const [isUploading, setIsUploading] = useState(false)
   const [showAllRecords, setShowAllRecords] = useState(false)
   const [showNFTModal, setShowNFTModal] = useState(false)
+  const [goals, setGoals] = useState<SavingsGoal[]>([])
+  const [showCreateGoal, setShowCreateGoal] = useState(false)
+  const [budgetAlert, setBudgetAlert] = useState<{
+    category: string
+    currentSpending: number
+    monthlyLimit: number
+    goalName: string
+  } | null>(null)
+  const [savingToGoal, setSavingToGoal] = useState<string | null>(null)
 
   // NFT Contract Interactions
   const { writeContractAsync: mintNFT } = useWriteContract()
@@ -43,6 +57,11 @@ export default function HomePage() {
   useEffect(() => {
     const saved = loadTransactions()
     setTransactions(saved)
+    
+    // Load goals and check if monthly reset needed
+    checkAndResetMonthlySpending()
+    const loadedGoals = loadGoals()
+    setGoals(loadedGoals)
   }, [])
 
   useEffect(() => {
@@ -99,6 +118,39 @@ export default function HomePage() {
     const updated = addTransaction(newTransaction)
     setTransactions(updated)
     const isFirstTransaction = updated.length === 1
+    
+    // Handle goal tracking
+    if (newTransaction.type === 'expense') {
+      // Check if category is controlled
+      const controlResult = isCategoryControlled(newTransaction.category, goals)
+      if (controlResult.isControlled && controlResult.goal) {
+        // Update spending
+        updateCategorySpending(controlResult.goal.id, newTransaction.category, newTransaction.amount)
+        
+        // Reload goals to get updated spending
+        const updatedGoals = loadGoals()
+        setGoals(updatedGoals)
+        
+        // Show budget alert
+        const controlled = controlResult.goal.controlledCategories.find(
+          c => c.category === newTransaction.category
+        )
+        if (controlled) {
+          setBudgetAlert({
+            category: newTransaction.category,
+            currentSpending: controlled.currentMonthSpending + newTransaction.amount,
+            monthlyLimit: controlled.monthlyLimit,
+            goalName: controlResult.goal.name
+          })
+        }
+      }
+    } else if (newTransaction.type === 'income' && savingToGoal) {
+      // Update goal savings
+      updateGoalSavings(savingToGoal, newTransaction.amount)
+      const updatedGoals = loadGoals()
+      setGoals(updatedGoals)
+      setSavingToGoal(null)
+    }
 
     if (isConnected && address && cid) {
       try {
@@ -174,6 +226,53 @@ export default function HomePage() {
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 py-10 space-y-10">
+        
+        {/* Section 0: Active Goals */}
+        {goals.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-black flex items-center gap-2">
+                <span>🎯</span> ACTIVE GOALS
+              </h2>
+              <button
+                onClick={() => setShowCreateGoal(true)}
+                className="neo-btn bg-green-400 hover:bg-green-500 text-sm"
+              >
+                + NEW GOAL
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {goals.filter(g => g.isActive).map(goal => (
+                <GoalCard 
+                  key={goal.id} 
+                  goal={goal} 
+                  onUpdate={() => {
+                    const updatedGoals = loadGoals()
+                    setGoals(updatedGoals)
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {/* Create Goal Button (when no goals) */}
+        {goals.length === 0 && (
+          <div className="neo-card p-8 text-center bg-gradient-to-br from-pink-50 to-purple-50">
+            <span className="text-6xl mb-4 block">🎯</span>
+            <h3 className="text-2xl font-black mb-2">设立存钱目标</h3>
+            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+              设定存钱目标，AI驱动的预算建议能助您更快达成哦！
+            </p>
+            <button
+              onClick={() => setShowCreateGoal(true)}
+              className="neo-btn bg-gradient-to-r from-pink-400 to-purple-400 hover:from-pink-500 hover:to-purple-500"
+            >
+              设立你的第一个目标 🚀
+            </button>
+          </div>
+        )}
         
         {/* Section 1: Input Methods */}
         {/* Added items-stretch to grid and flex-col/h-full to children for equal height */}
@@ -293,12 +392,34 @@ export default function HomePage() {
         {!isConnected && (
           <div className="fixed bottom-4 right-4 animate-bounce-slow z-40 max-w-xs">
             <div className="bg-red-100 border-4 border-black p-4 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
-              <p className="font-bold text-red-900 mb-1">⚠️ WALLET DISCONNECTED</p>
+              <p className="font-bold text-red-900 mb-1"> WALLET DISCONNECTED</p>
               <p className="text-sm font-medium">Connect wallet to enable military-grade encryption & IPFS storage.</p>
             </div>
           </div>
         )}
       </main>
+      
+      {/* Modals */}
+      {showCreateGoal && (
+        <CreateGoalModal
+          onClose={() => setShowCreateGoal(false)}
+          onCreate={() => {
+            const updatedGoals = loadGoals()
+            setGoals(updatedGoals)
+          }}
+          transactions={transactions}
+        />
+      )}
+      
+      {budgetAlert && (
+        <CategoryBudgetAlert
+          category={budgetAlert.category}
+          currentSpending={budgetAlert.currentSpending}
+          monthlyLimit={budgetAlert.monthlyLimit}
+          goalName={budgetAlert.goalName}
+          onClose={() => setBudgetAlert(null)}
+        />
+      )}
     </div>
   )
 }
