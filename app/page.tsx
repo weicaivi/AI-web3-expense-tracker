@@ -1,425 +1,80 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useAccount, useSignMessage, useWriteContract, useReadContract } from 'wagmi'
-import { WalletConnectButton } from '@/components/WalletConnect'
-import TransactionForm from '@/components/ExpenseForm'
-import ImageUpload from '@/components/ImageUpload'
-import TodayTransactions from '@/components/TodayTransactions'
-import MonthlyStats from '@/components/MonthlyStats'
-import InsightsPanel from '@/components/InsightsPanel'
-import ExpenseList from '@/components/ExpenseList'
-import ExportMenu from '@/components/ExportMenu'
-import MyNFT from '@/components/MyNFT'
-import { GoalCard } from '@/components/GoalCard'
-import { CreateGoalModal } from '@/components/CreateGoalModal'
-import { CategoryBudgetAlert } from '@/components/CategoryBudgetAlert'
-import { Transaction } from '@/lib/constants'
-import { ParseResult } from '@/utils/ai'
-import { encryptData, generateEncryptionKey } from '@/utils/crypto'
-import { loadTransactions, addTransaction, StoredTransaction, saveTransactions } from '@/utils/storage'
-import { FIRST_EXPENSE_NFT_ADDRESS, FIRST_EXPENSE_NFT_ABI, EXPENSE_TRACKER_ADDRESS, EXPENSE_TRACKER_ABI } from '@/lib/contracts'
-import { loadGoals, updateCategorySpending, updateGoalSavings, checkAndResetMonthlySpending } from '@/utils/goalStorage'
-import { isCategoryControlled, SavingsGoal } from '@/lib/goals'
+import React, { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAccount } from 'wagmi'
+import { useConnectModal } from '@rainbow-me/rainbowkit'
+import { Navbar } from '@/components/ui/Navbar'
+import { HeroSection } from '@/components/ui/HeroSection'
+import { ShieldCheck, Wallet, Sparkles, Database } from 'lucide-react'
 
-export default function HomePage() {
-  const { address, isConnected } = useAccount()
-  const { signMessageAsync } = useSignMessage()
-  const [transactions, setTransactions] = useState<StoredTransaction[]>([])
-  const [encryptionKey, setEncryptionKey] = useState<string>('')
-  const [isUploading, setIsUploading] = useState(false)
-  const [showAllRecords, setShowAllRecords] = useState(false)
-  const [showNFTModal, setShowNFTModal] = useState(false)
-  const [goals, setGoals] = useState<SavingsGoal[]>([])
-  const [showCreateGoal, setShowCreateGoal] = useState(false)
-  const [budgetAlert, setBudgetAlert] = useState<{
-    category: string
-    currentSpending: number
-    monthlyLimit: number
-    goalName: string
-  } | null>(null)
-  const [savingToGoal, setSavingToGoal] = useState<string | null>(null)
-
-  // NFT Contract Interactions
-  const { writeContractAsync: mintNFT } = useWriteContract()
-  const { writeContractAsync: addRecordToChain } = useWriteContract()
-
-  const { data: hasMintedNFT } = useReadContract({
-    address: FIRST_EXPENSE_NFT_ADDRESS as `0x${string}`,
-    abi: FIRST_EXPENSE_NFT_ABI,
-    functionName: 'hasMinted',
-    args: address ? [address] : undefined,
-    query: {
-      enabled: !!address && !!FIRST_EXPENSE_NFT_ADDRESS,
-    }
-  })
+export default function LandingPage() {
+  const router = useRouter()
+  const { isConnected } = useAccount()
+  const { openConnectModal } = useConnectModal()
 
   useEffect(() => {
-    const saved = loadTransactions()
-    setTransactions(saved)
-    
-    // Load goals and check if monthly reset needed
-    checkAndResetMonthlySpending()
-    const loadedGoals = loadGoals()
-    setGoals(loadedGoals)
-  }, [])
-
-  useEffect(() => {
-    if (isConnected && address && !encryptionKey) {
-      handleGenerateKey()
+    if (isConnected) {
+      router.push('/dashboard')
     }
-  }, [isConnected, address, encryptionKey])
+  }, [isConnected, router])
 
-  const handleGenerateKey = async () => {
-    try {
-      const result = await signMessageAsync({ message: 'ExpenseTracker' })
-      const key = generateEncryptionKey(result)
-      setEncryptionKey(key)
-    } catch (error) {
-      console.error('Failed to generate encryption key:', error)
-    }
-  }
-
-  const handleAddTransaction = async (parsedResult: ParseResult) => {
-    const newTransaction: StoredTransaction = {
-      id: Date.now().toString(),
-      type: parsedResult.type,
-      amount: parsedResult.amount,
-      category: parsedResult.category as any,
-      date: parsedResult.date,
-      description: parsedResult.description,
-    }
-
-    let cid: string | undefined
-
-    if (isConnected && encryptionKey) {
-      setIsUploading(true)
-      try {
-        const encryptedData = encryptData(newTransaction, encryptionKey)
-        const response = await fetch('/api/ipfs-upload', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ data: encryptedData }),
-        })
-
-        if (response.ok) {
-          const result = await response.json()
-          cid = result.cid
-          newTransaction.cid = cid
-          newTransaction.encrypted = true
-        }
-      } catch (error) {
-        console.error('IPFS Upload Failed:', error)
-      } finally {
-        setIsUploading(false)
-      }
-    }
-
-    const updated = addTransaction(newTransaction)
-    setTransactions(updated)
-    const isFirstTransaction = updated.length === 1
-    
-    // Handle goal tracking
-    if (newTransaction.type === 'expense') {
-      // Check if category is controlled
-      const controlResult = isCategoryControlled(newTransaction.category, goals)
-      if (controlResult.isControlled && controlResult.goal) {
-        // Update spending
-        updateCategorySpending(controlResult.goal.id, newTransaction.category, newTransaction.amount)
-        
-        // Reload goals to get updated spending
-        const updatedGoals = loadGoals()
-        setGoals(updatedGoals)
-        
-        // Show budget alert
-        const controlled = controlResult.goal.controlledCategories.find(
-          c => c.category === newTransaction.category
-        )
-        if (controlled) {
-          setBudgetAlert({
-            category: newTransaction.category,
-            currentSpending: controlled.currentMonthSpending + newTransaction.amount,
-            monthlyLimit: controlled.monthlyLimit,
-            goalName: controlResult.goal.name
-          })
-        }
-      }
-    } else if (newTransaction.type === 'income' && savingToGoal) {
-      // Update goal savings
-      updateGoalSavings(savingToGoal, newTransaction.amount)
-      const updatedGoals = loadGoals()
-      setGoals(updatedGoals)
-      setSavingToGoal(null)
-    }
-
-    if (isConnected && address && cid) {
-      try {
-        if (EXPENSE_TRACKER_ADDRESS) {
-          await addRecordToChain({
-            address: EXPENSE_TRACKER_ADDRESS as `0x${string}`,
-            abi: EXPENSE_TRACKER_ABI,
-            functionName: 'addRecord',
-            args: [cid]
-          })
-        }
-
-        if (isFirstTransaction && !hasMintedNFT && FIRST_EXPENSE_NFT_ADDRESS) {
-          await mintNFT({
-            address: FIRST_EXPENSE_NFT_ADDRESS as `0x${string}`,
-            abi: FIRST_EXPENSE_NFT_ABI,
-            functionName: 'mintFirstExpense'
-          })
-          setShowNFTModal(true)
-        }
-      } catch (error: any) {
-        console.error('Chain operation failed:', error)
-      }
-    }
-  }
-
-  const handleImportBackup = (importedTransactions: Transaction[]) => {
-    const storedTransactions = importedTransactions as StoredTransaction[]
-    saveTransactions(storedTransactions)
-    setTransactions(storedTransactions)
+  const handleConnectWallet = () => {
+    openConnectModal?.()
   }
 
   return (
-    <div className="min-h-screen pb-20 overflow-x-hidden">
-      {/* NFT Modal */}
-      <MyNFT
-        isOpen={showNFTModal}
-        onClose={() => setShowNFTModal(false)}
-        userName={address ? `${address.slice(0, 6)}...${address.slice(-4)}` : undefined}
-        nftImage="/nft-images/first-expense-nft.jpg"
-      />
-
-      {/* Brutalist Header */}
-      <header className="sticky top-0 z-50 bg-white border-b-4 border-black py-4 px-4 md:px-8">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-purple-500 border-2 border-black rounded-none shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center text-white font-bold text-xl">
-              AI
-            </div>
-            <h1 className="text-3xl font-black tracking-tighter text-black uppercase italic">
-              Web3 Ledger
-            </h1>
-          </div>
-          
-          <div className="flex flex-wrap items-center gap-4 justify-center">
-            {isConnected && (
-              <div className="bg-green-100 border-2 border-black px-3 py-1 font-mono text-sm font-bold shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : ''}
-              </div>
-            )}
-            <div className="flex gap-2">
-              <ExportMenu
-                transactions={transactions}
-                onImportBackup={handleImportBackup}
-              />
-              <div className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all">
-                 <WalletConnectButton />
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 py-10 space-y-10">
-        
-        {/* Section 0: Active Goals */}
-        {goals.length > 0 && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-black flex items-center gap-2">
-                <span>🎯</span> ACTIVE GOALS
-              </h2>
-              <button
-                onClick={() => setShowCreateGoal(true)}
-                className="neo-btn bg-green-400 hover:bg-green-500 text-sm"
-              >
-                + NEW GOAL
-              </button>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {goals.filter(g => g.isActive).map(goal => (
-                <GoalCard 
-                  key={goal.id} 
-                  goal={goal} 
-                  onUpdate={() => {
-                    const updatedGoals = loadGoals()
-                    setGoals(updatedGoals)
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-        
-        {/* Create Goal Button (when no goals) */}
-        {goals.length === 0 && (
-          <div className="neo-card p-8 text-center bg-gradient-to-br from-pink-50 to-purple-50">
-            <span className="text-6xl mb-4 block">🎯</span>
-            <h3 className="text-2xl font-black mb-2">设立存钱目标</h3>
-            <p className="text-gray-600 mb-6 max-w-md mx-auto">
-              设定存钱目标，AI驱动的预算建议能助您更快达成哦！
+    <div className="min-h-screen bg-[#fcfcfc]">
+      <Navbar onConnectWallet={handleConnectWallet} onGetStarted={handleConnectWallet} />
+      <HeroSection onGetStarted={handleConnectWallet} />
+      
+      <div className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-serif font-bold text-[#1a1a1a] mb-4">
+              Why choose LedgerWise
+            </h2>
+            <p className="text-[#666666] max-w-2xl mx-auto">
+              Experience the future of personal finance with features designed for control, security, and ease of use.
             </p>
-            <button
-              onClick={() => setShowCreateGoal(true)}
-              className="neo-btn bg-gradient-to-r from-pink-400 to-purple-400 hover:from-pink-500 hover:to-purple-500"
-            >
-              设立你的第一个目标 🚀
-            </button>
-          </div>
-        )}
-        
-        {/* Section 1: Input Methods */}
-        {/* Added items-stretch to grid and flex-col/h-full to children for equal height */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-          {/* Text Form */}
-          <div className="lg:col-span-7 flex flex-col animate-slideUp delay-100">
-             <div className="flex items-center gap-2 mb-2">
-                <div className="bg-blue-400 w-4 h-4 border border-black"></div>
-                <h2 className="font-bold text-xl">Manual Entry</h2>
-             </div>
-             {/* Added h-full and flex flex-col to fill space */}
-             <div className="neo-card p-6 relative overflow-hidden group h-full flex flex-col justify-center">
-               <div className="absolute top-0 right-0 bg-blue-400 text-white text-xs font-bold px-2 py-1 border-l-2 border-b-2 border-black z-10">
-                  TYPE IT
-               </div>
-               <TransactionForm onTransactionAdded={handleAddTransaction} />
-             </div>
           </div>
           
-          {/* Image Upload */}
-          <div className="lg:col-span-5 flex flex-col animate-slideUp delay-200">
-            <div className="flex items-center gap-2 mb-2">
-                <div className="bg-yellow-400 w-4 h-4 border border-black"></div>
-                <h2 className="font-bold text-xl">AI Scan</h2>
-             </div>
-            {/* Added h-full to fill space */}
-            <div className="neo-card p-6 bg-yellow-50 relative h-full">
-              <div className="absolute top-0 right-0 bg-yellow-400 text-black text-xs font-bold px-2 py-1 border-l-2 border-b-2 border-black z-10">
-                  DROP IT
-               </div>
-               {/* Decoration */}
-               <div className="absolute -bottom-4 -right-4 text-6xl opacity-20 rotate-12 select-none pointer-events-none">📸</div>
-              <ImageUpload onImageParsed={handleAddTransaction} />
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <FeatureCard 
+              icon={<Sparkles className="h-6 w-6 text-[#d4b062]" />}
+              title="AI Intelligence"
+              description="Natural language processing automatically categorizes your transactions."
+            />
+            <FeatureCard 
+              icon={<Wallet className="h-6 w-6 text-[#d4b062]" />}
+              title="Wallet Sync"
+              description="Connect your Web3 wallet to instantly recover your encrypted data."
+            />
+            <FeatureCard 
+              icon={<ShieldCheck className="h-6 w-6 text-[#d4b062]" />}
+              title="End-to-End Encrypted"
+              description="Your financial data is encrypted with your private key."
+            />
+            <FeatureCard 
+              icon={<Database className="h-6 w-6 text-[#d4b062]" />}
+              title="Decentralized"
+              description="Stored on IPFS. Permanent, censorship-resistant access."
+            />
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
 
-        {/* Section 2: Stats & Today */}
-        {/* Added items-stretch for equal height */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
-          <div className="flex flex-col animate-slideUp delay-300">
-             <div className="neo-card p-0 overflow-hidden h-full">
-               <div className="bg-pink-400 border-b-2 border-black p-3">
-                 <h3 className="font-black text-white text-lg uppercase tracking-widest">Today's Activity</h3>
-               </div>
-               <div className="p-4 h-full">
-                 <TodayTransactions transactions={transactions} />
-               </div>
-             </div>
-          </div>
-
-          <div className="flex flex-col animate-slideUp delay-300">
-            <div className="neo-card p-0 overflow-hidden h-full">
-               <div className="bg-purple-400 border-b-2 border-black p-3">
-                 <h3 className="font-black text-white text-lg uppercase tracking-widest">Monthly Overview</h3>
-               </div>
-               <div className="p-4 h-full">
-                 <MonthlyStats transactions={transactions} />
-               </div>
-             </div>
-          </div>
-        </div>
-
-        {/* Insights Panel */}
-        <div className="animate-slideUp delay-400">
-          <div className="neo-card border-4 border-black bg-white">
-            <div className="p-6">
-              <h2 className="text-2xl font-black mb-4 flex items-center gap-2">
-                <span>🧠</span> AI Insights
-              </h2>
-              <InsightsPanel transactions={transactions} />
-            </div>
-          </div>
-        </div>
-
-        {/* All Records Section */}
-        <div className="space-y-6 pt-8 border-t-4 border-dashed border-black/20">
-          {/* Toggle Button */}
-          <div className="flex justify-center">
-            <button
-              onClick={() => setShowAllRecords(!showAllRecords)}
-              className="neo-btn bg-black text-white hover:bg-gray-800 flex items-center gap-3 text-lg"
-            >
-              <span className={`transition-transform duration-300 ${showAllRecords ? 'rotate-180' : ''}`}>
-                ▼
-              </span>
-              <span>{showAllRecords ? 'COLLAPSE' : 'REVEAL'} ARCHIVE</span>
-              {transactions.length > 0 && (
-                <span className="bg-white text-black border border-black px-2 py-0.5 text-xs font-bold shadow-[2px_2px_0px_0px_rgba(255,255,255,0.5)]">
-                  {transactions.length}
-                </span>
-              )}
-            </button>
-          </div>
-
-          {/* Records List */}
-          {showAllRecords && (
-            <div className="animate-slideUp">
-              <div className="neo-card p-2 md:p-6">
-                <ExpenseList transactions={transactions} />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Dev Tools / Test Area */}
-        <div className="flex justify-center py-8 opacity-50 hover:opacity-100 transition-opacity">
-          <button
-            onClick={() => setShowNFTModal(true)}
-            className="text-xs font-mono border border-black px-2 py-1 bg-gray-200 hover:bg-purple-200"
-          >
-            [DEV: TEST NFT POPUP]
-          </button>
-        </div>
-
-        {/* Connection Warning */}
-        {!isConnected && (
-          <div className="fixed bottom-4 right-4 animate-bounce-slow z-40 max-w-xs">
-            <div className="bg-red-100 border-4 border-black p-4 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
-              <p className="font-bold text-red-900 mb-1"> WALLET DISCONNECTED</p>
-              <p className="text-sm font-medium">Connect wallet to enable military-grade encryption & IPFS storage.</p>
-            </div>
-          </div>
-        )}
-      </main>
-      
-      {/* Modals */}
-      {showCreateGoal && (
-        <CreateGoalModal
-          onClose={() => setShowCreateGoal(false)}
-          onCreate={() => {
-            const updatedGoals = loadGoals()
-            setGoals(updatedGoals)
-          }}
-          transactions={transactions}
-        />
-      )}
-      
-      {budgetAlert && (
-        <CategoryBudgetAlert
-          category={budgetAlert.category}
-          currentSpending={budgetAlert.currentSpending}
-          monthlyLimit={budgetAlert.monthlyLimit}
-          goalName={budgetAlert.goalName}
-          onClose={() => setBudgetAlert(null)}
-        />
-      )}
+function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+  return (
+    <div className="p-6 rounded-2xl bg-gray-50 border border-gray-100 hover:shadow-lg transition-shadow duration-300">
+      <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm mb-4">
+        {icon}
+      </div>
+      <h3 className="text-lg font-semibold text-[#1a1a1a] mb-2">{title}</h3>
+      <p className="text-[#666666] text-sm leading-relaxed">{description}</p>
     </div>
   )
 }
