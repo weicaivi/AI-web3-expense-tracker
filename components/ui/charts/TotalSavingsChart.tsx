@@ -35,7 +35,6 @@ export const TotalSavingsChart: React.FC<TotalSavingsChartProps> = ({ data = def
       <ResponsiveContainer>
         <BarChart
           data={data}
-          stackOffset="sign"
           margin={{
             top: 10,
             right: 0,
@@ -80,22 +79,20 @@ export const TotalSavingsChart: React.FC<TotalSavingsChartProps> = ({ data = def
                 return null;
             }}
           />
-          <Bar 
+          <Bar
             name="Income"
-            dataKey="savings" 
-            fill={COLOR_INCOME} 
-            radius={[4, 4, 0, 0]} 
-            barSize={12}
-            stackId="stack"
+            dataKey="savings"
+            fill={COLOR_INCOME}
+            radius={[4, 4, 0, 0]}
+            barSize={16}
             animationDuration={1500}
           />
-          <Bar 
+          <Bar
             name="Expenses"
-            dataKey="expenses" 
-            fill={COLOR_EXPENSE} 
-            radius={[0, 0, 4, 4]}
-            barSize={12}
-            stackId="stack"
+            dataKey="expenses"
+            fill={COLOR_EXPENSE}
+            radius={[4, 4, 0, 0]}
+            barSize={16}
             animationDuration={1500}
           />
         </BarChart>

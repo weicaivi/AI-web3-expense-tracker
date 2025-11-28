@@ -389,14 +389,19 @@ export default function DashboardPage() {
             uploadStatus={uploadStatus}
             walletAddress={address}
             onBatchImport={handleBatchImport}
+            hasMinted={hasMinted}
+            onMintNFT={mintNFT}
+            isNFTMinting={isNFTMinting}
+            onShowNFTModal={() => setShowNFTModal(true)}
           />
         </main>
       </div>
 
-      {/* NFT 铸造成功弹窗 */}
+      {/* NFT Minting Success Modal */}
       <MyNFT
         isOpen={showNFTModal}
         onClose={() => setShowNFTModal(false)}
+        nftImage="/nft-images/first-expense-nft.jpg"
         userName="Alex"
       />
     </>

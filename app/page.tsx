@@ -28,7 +28,7 @@ export default function LandingPage() {
       <Navbar onConnectWallet={handleConnectWallet} onGetStarted={handleConnectWallet} />
       <HeroSection onGetStarted={handleConnectWallet} />
       
-      <div className="py-16 bg-white">
+      <div id="why-choose-ledgerwise" className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-serif font-bold text-[#1a1a1a] mb-4">

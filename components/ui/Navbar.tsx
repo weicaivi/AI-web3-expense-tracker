@@ -21,9 +21,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onConnectWallet }) => {
           </div>
           
           <div className="hidden md:flex items-center space-x-8">
-            <a href="#" className="text-secondary hover:text-primary transition-colors text-sm font-medium">Features</a>
-            <a href="#" className="text-secondary hover:text-primary transition-colors text-sm font-medium">How it Works</a>
-            <a href="#" className="text-secondary hover:text-primary transition-colors text-sm font-medium">Security</a>
+            <a href="#why-choose-ledgerwise" className="text-secondary hover:text-primary transition-colors text-sm font-medium">Features</a>
           </div>
 
           <div className="flex items-center space-x-4">

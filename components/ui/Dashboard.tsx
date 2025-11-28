@@ -27,6 +27,10 @@ interface DashboardProps {
   uploadStatus?: string;
   walletAddress?: string;
   onBatchImport?: (transactions: Transaction[]) => void;
+  hasMinted?: boolean;
+  onMintNFT?: () => void;
+  isNFTMinting?: boolean;
+  onShowNFTModal?: () => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -39,7 +43,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onConfirmTransaction,
   uploadStatus,
   walletAddress,
-  onBatchImport
+  onBatchImport,
+  hasMinted = false,
+  onMintNFT,
+  isNFTMinting = false,
+  onShowNFTModal
 }) => {
   // Budget State
   const [budgetState, setBudgetState] = React.useState<BudgetState>({
@@ -72,16 +80,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // Check for onboarding trigger when user navigates to budgeting or savings tabs
   React.useEffect(() => {
     // Only show onboarding if budget is not set up AND user visits budgeting/savings tab
-    if (budgetState.monthlyIncome === 0 && (activeTab === 'budgeting' || activeTab === 'savings')) {
+    // Budget is considered not set up if all categories have 0 budget limit
+    const isBudgetSetup = budgetState.categories.some(cat => cat.budgetLimit > 0);
+    if (!isBudgetSetup && (activeTab === 'budgeting' || activeTab === 'savings')) {
       setOnboardingMode('setup');
       setShowOnboarding(true);
     }
-  }, [activeTab, budgetState.monthlyIncome]);
+  }, [activeTab, budgetState.categories]);
 
   const handleOnboardingComplete = (income: number, categories: BudgetCategory[], goals: BudgetGoal[]) => {
     setBudgetState(prev => ({
       ...prev,
-      monthlyIncome: income > 0 ? income : prev.monthlyIncome,
       categories: categories.length > 0 ? categories : prev.categories,
       goals: goals  // The modal already handles merging in 'add-goals' mode
     }));
@@ -93,9 +102,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setShowOnboarding(true);
   };
 
-  const handleIncomeUpdate = (newIncome: number) => {
-    setBudgetState(prev => ({ ...prev, monthlyIncome: newIncome }));
-  };
 
   const handleGoalMoneyAction = (goalId: string, amount: number, actionType: 'add' | 'withdraw') => {
     setBudgetState(prev => ({
@@ -162,11 +168,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
       return [{ month: currentMonth, savings: 0, expenses: 0 }];
     }
 
-    // Group transactions by month
+    // Group by YYYY-MM format (naturally sortable)
     const monthlyData: Record<string, { income: number; expense: number }> = {};
 
     transactions.forEach(t => {
-      const monthKey = new Date(t.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+      const date = new Date(t.date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
       if (!monthlyData[monthKey]) {
         monthlyData[monthKey] = { income: 0, expense: 0 };
       }
@@ -178,14 +186,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
       }
     });
 
-    // Convert to chart format and sort by date
+    // Sort by YYYY-MM string, take last 6 months, convert to display format
     return Object.entries(monthlyData)
-      .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
-      .map(([month, data]) => ({
-        month: new Date(month).toLocaleDateString('en-US', { month: 'short' }),
-        savings: data.income,
-        expenses: -data.expense // Negative for chart display
-      }));
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-6)
+      .map(([monthKey, data]) => {
+        const [year, month] = monthKey.split('-');
+        const displayMonth = new Date(parseInt(year), parseInt(month) - 1)
+          .toLocaleDateString('en-US', { month: 'short' });
+        return {
+          month: displayMonth,
+          savings: data.income,
+          expenses: data.expense
+        };
+      });
   }, [transactions]);
 
   // Mock data for charts
@@ -233,14 +247,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <div className="flex justify-between items-center mb-6">
               <div>
                 <h2 className="text-lg font-bold text-primary">Budget Distribution</h2>
-                <p className="text-sm text-secondary">Visualizing how your ${budgetState.monthlyIncome.toLocaleString()} monthly income is allocated</p>
+                <p className="text-sm text-secondary">Visualizing how your income is allocated across categories</p>
               </div>
           </div>
-          
-          <SmartBudgetFlow 
-            monthlyIncome={budgetState.monthlyIncome}
+
+          <SmartBudgetFlow
+            transactions={transactions}
             categories={displayCategories}
-            onIncomeUpdate={handleIncomeUpdate}
           />
       </div>
 
@@ -377,6 +390,112 @@ export const Dashboard: React.FC<DashboardProps> = ({
     <AIAssistant transactions={transactions} />
   );
 
+  const renderNFTsView = () => {
+    const hasTransactions = transactions.length >= 1;
+
+    // If no transaction records
+    if (!hasTransactions) {
+      return (
+        <div className="space-y-6 animate-in fade-in duration-500">
+          <div className="bg-white rounded-3xl p-12 shadow-sm border border-gray-100 text-center">
+            <div className="mb-6">
+              <div className="text-6xl mb-4">🎨</div>
+              <h2 className="text-2xl font-bold text-primary mb-2">Start Recording to Unlock NFT</h2>
+              <p className="text-secondary">
+                Complete your first expense record to earn your exclusive "First Expense NFT" badge!
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // If NFT has been minted
+    if (hasMinted) {
+      return (
+        <div className="space-y-6 animate-in fade-in duration-500">
+          <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+            <h2 className="text-xl font-bold text-primary mb-6">My NFT Collection</h2>
+            
+            {/* Simplified NFT Card - Clickable */}
+            <div 
+              onClick={onShowNFTModal}
+              className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-all transform hover:scale-[1.01]"
+            >
+              {/* NFT Image */}
+              <div className="mb-4 flex justify-center">
+                <img
+                  src="/nft-images/first-expense-nft.jpg"
+                  alt="First Expense NFT"
+                  className="max-w-xs w-full h-auto rounded-lg object-contain"
+                />
+              </div>
+
+              {/* Brief Description */}
+              <div className="text-center">
+                <h3 className="text-xl font-bold text-gray-800 mb-2">First Expense NFT</h3>
+                <p className="text-sm text-gray-600">
+                  Your milestone achievement for completing your first expense record
+                </p>
+                <p className="text-xs text-gray-500 mt-2">
+                  Click to view details
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // If has transactions but not minted
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+          <h2 className="text-xl font-bold text-primary mb-6">My NFT Collection</h2>
+          
+          {/* Pending Mint Status Card */}
+          <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl p-8 text-center">
+            <div className="mb-6">
+              <div className="text-6xl mb-4">🎨</div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">First Expense NFT</h3>
+              <p className="text-gray-600">
+                You've completed {transactions.length} expense record{transactions.length > 1 ? 's' : ''}. Now you can mint your exclusive NFT!
+              </p>
+            </div>
+
+            {/* NFT Preview */}
+            <div className="bg-white rounded-xl p-6 mb-6 max-w-md mx-auto">
+              <div className="mb-4 flex justify-center">
+                <img
+                  src="/nft-images/first-expense-nft.jpg"
+                  alt="First Expense NFT Preview"
+                  className="max-w-xs w-full h-auto rounded-lg object-contain"
+                />
+              </div>
+              <div className="text-sm text-gray-500 space-y-1">
+                <div>✨ Legendary Rarity</div>
+                <div>⛓️ Permanently stored on blockchain</div>
+              </div>
+            </div>
+
+            {/* Mint Button */}
+            <button
+              onClick={onMintNFT}
+              disabled={isNFTMinting}
+              className="w-full max-w-md mx-auto bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 px-6 rounded-lg font-bold text-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+            >
+              {isNFTMinting ? '🎨 Minting...' : '🎊 Mint NFT Now'}
+            </button>
+
+            <p className="text-xs text-gray-500 mt-4">
+              💼 NFT will be permanently saved in your wallet
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderDashboardView = () => (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-500 items-stretch">
         
@@ -505,6 +624,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                {activeTab === 'budgeting' && 'Budgeting & Expenses'}
                {activeTab === 'transactions' && 'Transactions'}
                {activeTab === 'assistant' && 'AI Assistant'}
+               {activeTab === 'nfts' && 'NFTs'}
              </h1>
              <p className="text-secondary text-sm">Welcome back! Start your journey to financial freedom.🎉</p>
           </div>
@@ -548,6 +668,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {activeTab === 'budgeting' && renderBudgetingView()}
       {activeTab === 'transactions' && renderTransactionsView()}
       {activeTab === 'assistant' && renderAssistantView()}
+      {activeTab === 'nfts' && renderNFTsView()}
 
       {/* Financial Health Modal */}
       <FinancialHealthModal
