@@ -1,25 +1,57 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Wallet, Loader2, AlertTriangle } from 'lucide-react';
 import { BudgetCategory } from '@/lib/budgetTypes';
+import { Transaction } from '@/lib/constants';
 
 interface SmartBudgetFlowProps {
-  monthlyIncome: number;
+  transactions: Transaction[];
   categories: BudgetCategory[];
-  onIncomeUpdate: (newIncome: number) => void;
 }
 
 export const SmartBudgetFlow: React.FC<SmartBudgetFlowProps> = ({
-  monthlyIncome,
+  transactions,
   categories,
-  onIncomeUpdate,
 }) => {
-  const [isReading, setIsReading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const incomeRef = useRef<HTMLDivElement>(null);
   const categoryRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [paths, setPaths] = useState<string[]>([]);
+
+  // Calculate current month's income
+  const currentMonthIncome = useMemo(() => {
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    return transactions
+      .filter(t => t.type === 'income' && t.date.startsWith(currentMonth))
+      .reduce((sum, t) => sum + t.amount, 0);
+  }, [transactions]);
+
+  // Calculate current month spending per category
+  const getCurrentMonthSpending = useMemo(() => {
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    const spending: Record<string, number> = {};
+
+    transactions
+      .filter(t => t.type === 'expense' && t.date.startsWith(currentMonth))
+      .forEach(t => {
+        spending[t.category] = (spending[t.category] || 0) + t.amount;
+      });
+
+    return spending;
+  }, [transactions]);
+
+  // Update categories with current month spending
+  const categoriesWithCurrentSpending = useMemo(() => {
+    return categories.map(cat => ({
+      ...cat,
+      currentSpent: getCurrentMonthSpending[cat.name] || 0
+    }));
+  }, [categories, getCurrentMonthSpending]);
 
   // Update paths on resize or data change
   useEffect(() => {
@@ -28,11 +60,11 @@ export const SmartBudgetFlow: React.FC<SmartBudgetFlowProps> = ({
 
       const containerRect = containerRef.current.getBoundingClientRect();
       const incomeRect = incomeRef.current.getBoundingClientRect();
-      
+
       const startX = incomeRect.right - containerRect.left;
       const startY = incomeRect.top + incomeRect.height / 2 - containerRect.top;
 
-      const newPaths = categories.map((_, index) => {
+      const newPaths = categoriesWithCurrentSpending.map((_, index) => {
         const categoryEl = categoryRefs.current[index];
         if (!categoryEl) return '';
 
@@ -54,7 +86,7 @@ export const SmartBudgetFlow: React.FC<SmartBudgetFlowProps> = ({
 
     updatePaths();
     window.addEventListener('resize', updatePaths);
-    
+
     // Small delay to ensure DOM is ready
     const timeout = setTimeout(updatePaths, 100);
 
@@ -62,18 +94,7 @@ export const SmartBudgetFlow: React.FC<SmartBudgetFlowProps> = ({
       window.removeEventListener('resize', updatePaths);
       clearTimeout(timeout);
     };
-  }, [categories]);
-
-  const handleAutoRead = async () => {
-    setIsReading(true);
-    // Simulate Web3 fetch - use a consistent seed based on current income
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    // Generate a more realistic income update (+/- 10% from current)
-    const variation = monthlyIncome * 0.1;
-    const newIncome = Math.floor(monthlyIncome + (Math.random() * variation * 2 - variation));
-    onIncomeUpdate(Math.max(1000, newIncome)); // Ensure minimum 1000
-    setIsReading(false);
-  };
+  }, [categoriesWithCurrentSpending]);
 
   return (
     <div className="relative w-full p-6 bg-amber-50/30 rounded-3xl border border-amber-100" ref={containerRef}>
@@ -95,7 +116,7 @@ export const SmartBudgetFlow: React.FC<SmartBudgetFlowProps> = ({
       <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-16">
         {/* Left Column: Income Pool */}
         <div className="flex items-center justify-center">
-          <div 
+          <div
             ref={incomeRef}
             className="w-full max-w-xs bg-gradient-to-br from-amber-100 to-amber-50 p-6 rounded-2xl border border-amber-200 shadow-sm hover:shadow-md transition-all"
           >
@@ -103,44 +124,16 @@ export const SmartBudgetFlow: React.FC<SmartBudgetFlowProps> = ({
               <Wallet className="w-5 h-5" />
               <span className="font-semibold">Income Pool (Dynamic)</span>
             </div>
-            
-            <div className="text-4xl font-bold text-amber-900 mb-2">
-              ${monthlyIncome.toLocaleString()}
-            </div>
-            
-            <div className="text-sm text-green-600 mb-6 font-medium">
-              +5% vs last month
-            </div>
 
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm text-amber-700">
-                <span>Total Remaining:</span>
-                <span className="font-bold">
-                  ${Math.max(0, monthlyIncome - categories.reduce((acc, cat) => acc + cat.currentSpent, 0)).toLocaleString()}
-                </span>
-              </div>
+            <div className="text-4xl font-bold text-amber-900">
+              ${currentMonthIncome.toLocaleString()}
             </div>
-
-            <button
-              onClick={handleAutoRead}
-              disabled={isReading}
-              className="mt-6 w-full py-2 px-4 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
-            >
-              {isReading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Reading Wallet...
-                </>
-              ) : (
-                'Auto-read Income'
-              )}
-            </button>
           </div>
         </div>
 
         {/* Right Column: Categories */}
         <div className="md:col-span-2 space-y-4">
-          {categories.map((category, index) => {
+          {categoriesWithCurrentSpending.map((category, index) => {
             const hasLimit = category.budgetLimit > 0;
             const percentage = hasLimit ? Math.min((category.currentSpent / category.budgetLimit) * 100, 100) : 0;
             const isWarning = percentage > 80;

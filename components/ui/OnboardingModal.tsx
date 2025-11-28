@@ -21,15 +21,14 @@ const FIXED_CATEGORIES = [
   'Investments'
 ];
 
-export const OnboardingModal: React.FC<OnboardingModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  onComplete, 
+export const OnboardingModal: React.FC<OnboardingModalProps> = ({
+  isOpen,
+  onClose,
+  onComplete,
   existingGoals = [],
-  mode = 'setup' 
+  mode = 'setup'
 }) => {
   const [step, setStep] = useState(mode === 'add-goals' ? 2 : 1);
-  const [income, setIncome] = useState<string>('');
   const [categoryLimits, setCategoryLimits] = useState<Record<string, string>>({});
   const [goals, setGoals] = useState<Omit<BudgetGoal, 'currentSaved'>[]>([
     { id: Date.now().toString(), name: '', targetAmount: 0 }
@@ -57,30 +56,29 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
   const handleNext = () => {
     if (step === 1) {
-      // Basic validation
-      if (!income || parseFloat(income) <= 0) return;
+      // Move to goals step
       setStep(2);
     } else {
       // Complete
-      const finalIncome = parseFloat(income) || 0;
       const finalCategories: BudgetCategory[] = FIXED_CATEGORIES.map(name => ({
         name,
         budgetLimit: parseFloat(categoryLimits[name] || '0'),
         currentSpent: 0 // Initialize with 0, will be updated by real data later
       }));
-      
+
       // Filter new goals that are valid
       const newGoals: BudgetGoal[] = goals
         .filter(g => g.name && g.targetAmount > 0)
         .map(g => ({ ...g, currentSaved: 0 }));
 
       // If in 'add-goals' mode, merge with existing goals
-      const allGoals = mode === 'add-goals' 
+      const allGoals = mode === 'add-goals'
         ? [...existingGoals, ...newGoals]
         : newGoals;
 
-      onComplete(finalIncome, finalCategories, allGoals);
-      
+      // Pass 0 for income since it's now calculated dynamically
+      onComplete(0, finalCategories, allGoals);
+
       // Reset form
       setGoals([{ id: Date.now().toString(), name: '', targetAmount: 0 }]);
       setStep(mode === 'add-goals' ? 2 : 1);
@@ -98,8 +96,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 {step === 1 ? "Set Up Your Budget" : "Set Your Saving Goals"}
               </h2>
               <p className="text-gray-500 mt-2">
-                {step === 1 
-                  ? "Define your monthly income and spending limits for each category." 
+                {step === 1
+                  ? "Define spending limits for each category."
                   : "What are you saving for? Add up to 4 goals."}
               </p>
             </div>
@@ -113,24 +111,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         <div className="p-8">
           {step === 1 ? (
             <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Monthly Income
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-gray-500">$</span>
-                  </div>
-                  <input
-                    type="number"
-                    value={income}
-                    onChange={(e) => setIncome(e.target.value)}
-                    className="w-full pl-8 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition-all"
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-4">
                   Category Budget Limits (Optional)
@@ -223,8 +203,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           )}
           <button
             onClick={handleNext}
-            disabled={step === 1 ? !income : false}
-            className="px-8 py-3 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold shadow-lg shadow-amber-500/20 transition-all flex items-center gap-2"
+            className="px-8 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold shadow-lg shadow-amber-500/20 transition-all flex items-center gap-2"
           >
             {step === 1 ? (
               <>Next Step <ArrowRight className="w-4 h-4" /></>

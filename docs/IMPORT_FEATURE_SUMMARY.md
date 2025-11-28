@@ -64,7 +64,6 @@
   - ✅ 添加 `xlsx@0.18.5` - Excel 解析
   - ✅ 添加 `papaparse@5.4.1` - CSV 解析
   - ✅ 添加 `pdf-parse@1.1.1` - PDF 解析
-  - ✅ 添加 `@anthropic-ai/sdk@0.32.0` - AI 处理
   - ✅ 添加 `@types/papaparse@5.3.14` - 类型定义
 
 ## 🎨 UI 设计
@@ -129,7 +128,7 @@
 ### PDF
 - **格式**: .pdf
 - **要求**: 文本型 PDF（非扫描件）
-- **技术**: pdf-parse + AI 解析
+- **技术**: pdf-parse + AI 解析（Qwen 优先 → Claude fallback）
 
 ## 🔐 安全性
 
@@ -219,10 +218,20 @@ npm run dev
 - ✅ 使用现有的加密和存储逻辑
 
 ### 环境变量
-PDF 功能需要配置：
+所有 AI 功能（图片识别、PDF 解析）共用以下配置：
 ```env
-ANTHROPIC_API_KEY=your_key_here
+# 推荐：优先使用 Qwen（成本更低）
+QWEN_API_KEY=your_qwen_api_key
+
+# 可选：作为备份的 Claude API
+CLAUDE_API_KEY=your_claude_api_key
 ```
+
+**Fallback 机制**: 
+- 优先使用 Qwen API
+- Qwen 失败时自动切换到 Claude
+- 只需配置其中一个即可使用
+- 建议两个都配置以提高可用性
 
 ## 🎉 测试建议
 
@@ -277,4 +286,5 @@ ANTHROPIC_API_KEY=your_key_here
 - ✅ 文档完善
 
 可以开始测试使用了！🎉
+
 

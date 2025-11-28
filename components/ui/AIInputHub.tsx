@@ -59,15 +59,15 @@ export const AIInputHub: React.FC<AIInputHubProps> = ({
     if (!files || files.length === 0) return;
 
     setImportLoading(true);
-    setImportStatus('正在处理文件...');
+    setImportStatus('Processing files...');
 
     try {
       const fileArray = Array.from(files);
       const firstFileType = detectFileType(fileArray[0]);
 
-      // 根据文件类型调用不同的 API
+      // Handle different file types with appropriate API
       if (firstFileType === 'csv' || firstFileType === 'excel') {
-        // 只处理第一个文件
+        // Process first file only
         const file = fileArray[0];
         const base64 = await fileToBase64(file);
         
@@ -81,15 +81,22 @@ export const AIInputHub: React.FC<AIInputHubProps> = ({
         });
 
         const result = await response.json();
+        console.log('=== CSV Import Response ===');
+        console.log('Full result:', result);
+        console.log('Data array:', result.data);
+        console.log('Data length:', result.data?.length);
+
         if (result.success) {
+          console.log('Setting importedData with', result.data.length, 'items');
           setImportedData(result.data);
           setShowImportModal(true);
+          console.log('Modal should now be visible with data');
         } else {
-          alert(result.error || '文件解析失败');
+          alert(result.error || 'File parsing failed');
         }
       } else if (firstFileType === 'image') {
-        // 批量处理图片
-        setImportStatus(`正在识别 ${fileArray.length} 张图片...`);
+        // Batch process images
+        setImportStatus(`Processing ${fileArray.length} images...`);
         const images = await Promise.all(
           fileArray.map(file => fileToBase64(file))
         );
@@ -101,17 +108,23 @@ export const AIInputHub: React.FC<AIInputHubProps> = ({
         });
 
         const result = await response.json();
+        console.log('=== Image Import Response ===');
+        console.log('Full result:', result);
+        console.log('Data array:', result.data);
+        console.log('Data length:', result.data?.length);
+
         if (result.success) {
+          console.log('Setting importedData with', result.data.length, 'items');
           setImportedData(result.data);
           setShowImportModal(true);
           if (result.errors && result.errors.length > 0) {
-            console.warn('部分图片识别失败:', result.errors);
+            console.warn('Some images failed to process:', result.errors);
           }
         } else {
-          alert(result.error || '图片识别失败');
+          alert(result.error || 'Image recognition failed');
         }
       } else if (firstFileType === 'pdf') {
-        // 处理 PDF
+        // Process PDF
         const file = fileArray[0];
         const base64 = await fileToBase64(file);
         
@@ -122,18 +135,25 @@ export const AIInputHub: React.FC<AIInputHubProps> = ({
         });
 
         const result = await response.json();
+        console.log('=== PDF Import Response ===');
+        console.log('Full result:', result);
+        console.log('Data array:', result.data);
+        console.log('Data length:', result.data?.length);
+
         if (result.success) {
+          console.log('Setting importedData with', result.data.length, 'items');
           setImportedData(result.data);
           setShowImportModal(true);
+          console.log('Modal should now be visible with data');
         } else {
-          alert(result.error || 'PDF 解析失败');
+          alert(result.error || 'PDF parsing failed');
         }
       } else {
-        alert('不支持的文件格式');
+        alert('Unsupported file format');
       }
     } catch (error: any) {
-      console.error('文件导入错误:', error);
-      alert(error.message || '文件导入失败');
+      console.error('File import error:', error);
+      alert(error.message || 'File import failed');
     } finally {
       setImportLoading(false);
       setImportStatus('');
@@ -149,7 +169,7 @@ export const AIInputHub: React.FC<AIInputHubProps> = ({
     setImportedData([]);
   };
 
-  // 辅助函数：文件转 Base64
+  // Helper function: Convert file to Base64
   async function fileToBase64(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();

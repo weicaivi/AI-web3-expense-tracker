@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Trash2, AlertCircle, CheckCircle } from 'lucide-react';
 import { Transaction } from '@/lib/constants';
 
@@ -18,6 +18,19 @@ export const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   onConfirmImport
 }) => {
   const [editableData, setEditableData] = useState<Transaction[]>(parsedData);
+
+  // Fix: Sync editableData when parsedData changes
+  useEffect(() => {
+    console.log('=== ImportPreviewModal Data Update ===');
+    console.log('Received parsedData:', parsedData);
+    console.log('parsedData length:', parsedData?.length);
+    console.log('isOpen:', isOpen);
+
+    if (parsedData && parsedData.length > 0) {
+      setEditableData(parsedData);
+      console.log('Updated editableData with', parsedData.length, 'records');
+    }
+  }, [parsedData, isOpen]);
 
   if (!isOpen) return null;
 
@@ -50,10 +63,10 @@ export const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
             <div>
               <h2 className="text-2xl font-serif font-bold text-primary flex items-center gap-3">
                 <CheckCircle className="w-7 h-7 text-green-500" />
-                导入预览
+                Import Preview
               </h2>
               <p className="text-sm text-secondary mt-1">
-                成功解析 <span className="font-bold text-primary">{editableData.length}</span> 条记录，请检查并编辑
+                Successfully identified <span className="font-bold text-primary">{editableData.length}</span> records - please review and edit
               </p>
             </div>
             <button
@@ -70,18 +83,18 @@ export const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
           {editableData.length === 0 ? (
             <div className="text-center py-12 text-secondary">
               <AlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-              <p>没有可导入的数据</p>
+              <p>No records identified</p>
             </div>
           ) : (
             <table className="w-full">
               <thead className="sticky top-0 bg-gray-50 z-10">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">类型</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">日期</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">金额</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">类别</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">描述</th>
-                  <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">操作</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Amount</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Category</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Description</th>
+                  <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -93,8 +106,8 @@ export const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
                         onChange={(e) => handleFieldChange(index, 'type', e.target.value)}
                         className="text-sm border border-gray-200 rounded-lg px-2 py-1 focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       >
-                        <option value="income">收入</option>
-                        <option value="expense">支出</option>
+                        <option value="income">Income</option>
+                        <option value="expense">Expense</option>
                       </select>
                     </td>
                     <td className="px-4 py-3">
@@ -135,14 +148,14 @@ export const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
                         value={transaction.description}
                         onChange={(e) => handleFieldChange(index, 'description', e.target.value)}
                         className="text-sm border border-gray-200 rounded-lg px-2 py-1 focus:ring-2 focus:ring-primary/20 focus:border-primary w-full"
-                        placeholder="描述"
+                        placeholder="Description"
                       />
                     </td>
                     <td className="px-4 py-3 text-center">
                       <button
                         onClick={() => handleDelete(index)}
                         className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="删除此条记录"
+                        title="Delete this record"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -160,14 +173,14 @@ export const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
             <div className="flex items-center gap-6 text-sm">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                <span className="text-secondary">收入: <span className="font-bold text-green-600">{incomeCount}</span> 条</span>
+                <span className="text-secondary">Income: <span className="font-bold text-green-600">{incomeCount}</span> records</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                <span className="text-secondary">支出: <span className="font-bold text-red-600">{expenseCount}</span> 条</span>
+                <span className="text-secondary">Expenses: <span className="font-bold text-red-600">{expenseCount}</span> records</span>
               </div>
               <div className="text-secondary">
-                总计: <span className="font-bold text-primary">${totalAmount.toFixed(2)}</span>
+                Total: <span className="font-bold text-primary">${totalAmount.toFixed(2)}</span>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -175,14 +188,14 @@ export const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
                 onClick={onClose}
                 className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-full hover:bg-gray-100 transition-colors font-medium"
               >
-                取消
+                Cancel
               </button>
               <button
                 onClick={handleConfirm}
                 disabled={editableData.length === 0}
                 className="px-6 py-2.5 bg-primary text-white rounded-full hover:bg-black transition-colors font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                确认导入 ({editableData.length} 条)
+                Confirm Import ({editableData.length} records)
               </button>
             </div>
           </div>
@@ -191,4 +204,6 @@ export const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     </div>
   );
 };
+
+
 
